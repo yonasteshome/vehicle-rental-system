@@ -15,5 +15,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use("/api/auth", authRoutes);
+app.use("/api/vehicles", require("./routes/vehicle.routes").default);
+app.use("/api/bookings", require("./routes/booking.routes").default);
 
 export default app;
