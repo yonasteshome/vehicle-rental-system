@@ -1,14 +1,28 @@
 import { Request, Response } from "express";
 import { registerUser, loginUser } from "../services/auth.service";
+import CarUser from "../models/user.model";
+import Booking from "../models/booking.model";
+import Payment from "../models/payment.model";
 
+/* ================= TYPES ================= */
+interface AuthRequest extends Request {
+  user?: {
+    id: string;
+    role: "USER" | "ADMIN";
+  };
+}
+
+/* ================= COOKIE ================= */
 const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: "strict" as const,
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
-export const signup = async (req: Request, res: Response) => {
+/* ================= AUTH ================= */
+
+export const signup = async (req: AuthRequest, res: Response) => {
   try {
     const { name, email, password } = req.body;
 
@@ -19,7 +33,6 @@ export const signup = async (req: Request, res: Response) => {
       .cookie("access_token", result.token, cookieOptions)
       .json({
         success: true,
-        message: "User registered successfully",
         user: {
           id: result.user._id,
           name: result.user.name,
@@ -32,7 +45,7 @@ export const signup = async (req: Request, res: Response) => {
   }
 };
 
-export const login = async (req: Request, res: Response) => {
+export const login = async (req: AuthRequest, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -43,7 +56,6 @@ export const login = async (req: Request, res: Response) => {
       .cookie("access_token", result.token, cookieOptions)
       .json({
         success: true,
-        message: "Login successful",
         user: {
           id: result.user._id,
           name: result.user.name,
@@ -56,8 +68,58 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
-export const logout = (_req: Request, res: Response) => {
-  res
-    .clearCookie("access_token")
-    .json({ success: true, message: "Logged out successfully" });
+export const logout = (_req: AuthRequest, res: Response) => {
+  res.clearCookie("access_token").json({
+    success: true,
+    message: "Logged out successfully",
+  });
+};
+
+/* ================= PROFILE ================= */
+
+export const getMyProfile = async (req: AuthRequest, res: Response) => {
+  const user = await CarUser.findById(req.user!.id).select("-password");
+
+  res.json({
+    success: true,
+    data: user,
+  });
+};
+
+/* ================= ADMIN DASHBOARD / REVENUE ================= */
+
+export const getAdminDashboard = async (req: AuthRequest, res: Response) => {
+  if (req.user?.role !== "ADMIN") {
+    return res.status(403).json({
+      success: false,
+      message: "Admin access required",
+    });
+  }
+
+  const totalUsers = await CarUser.countDocuments();
+  const totalBookings = await Booking.countDocuments();
+  const completedBookings = await Booking.countDocuments({
+    status: "COMPLETED",
+  });
+
+  const revenueResult = await Payment.aggregate([
+    {
+      $group: {
+        _id: null,
+        totalRevenue: { $sum: "$amount" },
+      },
+    },
+  ]);
+
+  const totalRevenue = revenueResult[0]?.totalRevenue || 0;
+
+  res.json({
+    success: true,
+    data: {
+      totalUsers,
+      totalBookings,
+      completedBookings,
+      totalRevenue,
+    },
+  });
 };

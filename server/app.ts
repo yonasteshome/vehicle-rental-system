@@ -18,5 +18,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/vehicles", require("./routes/vehicle.routes").default);
 app.use("/api/bookings", require("./routes/booking.routes").default);
 app.use("/api/payments", require("./routes/payment.routes").default);
+app.use("/api/reports", require("./routes/report.routes").default);
 
 export default app;
