@@ -1,15 +1,14 @@
 import mongoose, { Schema, Document } from "mongoose";
-import { BookingStatus } from "../types/booking.types";
 
-export interface BookingDocument extends Document {
+export interface IBooking extends Document {
   user: mongoose.Types.ObjectId;
   vehicle: mongoose.Types.ObjectId;
   startDate: Date;
   endDate: Date;
-  status: BookingStatus;
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
 }
 
-const bookingSchema = new Schema<BookingDocument>(
+const bookingSchema = new Schema<IBooking>(
   {
     user: {
       type: Schema.Types.ObjectId,
@@ -31,11 +30,11 @@ const bookingSchema = new Schema<BookingDocument>(
     },
     status: {
       type: String,
-      enum: ["PENDING", "CONFIRMED", "CANCELLED"],
+      enum: ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"],
       default: "PENDING",
     },
   },
   { timestamps: true }
 );
 
-export default mongoose.model<BookingDocument>("Booking", bookingSchema);
+export default mongoose.model<IBooking>("Booking", bookingSchema);

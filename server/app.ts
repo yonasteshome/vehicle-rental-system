@@ -17,5 +17,6 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use("/api/vehicles", require("./routes/vehicle.routes").default);
 app.use("/api/bookings", require("./routes/booking.routes").default);
+app.use("/api/payments", require("./routes/payment.routes").default);
 
 export default app;

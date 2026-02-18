@@ -1,10 +1,15 @@
 import Booking from "../models/booking.model";
 import Vehicle from "../models/vehicle.model";
-import { CreateBookingInput } from "../types/booking.types";
+import mongoose from "mongoose";
 
+/* ================= CREATE BOOKING (USER) ================= */
 export const createBooking = async (
   userId: string,
-  data: CreateBookingInput
+  data: {
+    vehicleId: string;
+    startDate: Date;
+    endDate: Date;
+  }
 ) => {
   const vehicle = await Vehicle.findById(data.vehicleId);
 
@@ -17,27 +22,52 @@ export const createBooking = async (
   }
 
   const booking = await Booking.create({
-    user: userId,
+    user: userId, // 👉 references carUser
     vehicle: data.vehicleId,
     startDate: data.startDate,
     endDate: data.endDate,
+    status: "PENDING",
   });
-
-  // make vehicle unavailable
-  vehicle.available = false;
-  await vehicle.save();
 
   return booking;
 };
 
+/* ================= USER BOOKINGS ================= */
 export const getUserBookings = async (userId: string) => {
-  return Booking.find({ user: userId }).populate("vehicle");
+  return Booking.find({ user: userId })
+    .populate("vehicle");
 };
 
+/* ================= ADMIN BOOKINGS ================= */
 export const getAllBookings = async () => {
-  return Booking.find().populate("user vehicle");
+  return Booking.find()
+    .populate({
+      path: "user",
+      model: "carUser", // ✅ IMPORTANT FIX
+      select: "name email role",
+    })
+    .populate("vehicle");
 };
 
+/* ================= ADMIN CONFIRM ================= */
+export const confirmBooking = async (bookingId: string) => {
+  const booking = await Booking.findById(bookingId);
+
+  if (!booking) {
+    throw new Error("Booking not found");
+  }
+
+  if (booking.status !== "PENDING") {
+    throw new Error("Only pending bookings can be confirmed");
+  }
+
+  booking.status = "CONFIRMED";
+  await booking.save();
+
+  return booking;
+};
+
+/* ================= ADMIN CANCEL ================= */
 export const cancelBooking = async (bookingId: string) => {
   const booking = await Booking.findById(bookingId);
 
@@ -48,10 +78,33 @@ export const cancelBooking = async (bookingId: string) => {
   booking.status = "CANCELLED";
   await booking.save();
 
-  // make vehicle available again
-  await Vehicle.findByIdAndUpdate(booking.vehicle, {
-    available: true,
+  return booking;
+};
+
+/* ================= USER CANCEL OWN ================= */
+export const cancelOwnBooking = async (
+  bookingId: string,
+  userId: string
+) => {
+  if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+    throw new Error("Invalid booking ID");
+  }
+
+  const booking = await Booking.findOne({
+    _id: bookingId,
+    user: userId,
   });
+
+  if (!booking) {
+    throw new Error("Booking not found or access denied");
+  }
+
+  if (booking.status !== "PENDING") {
+    throw new Error("Only pending bookings can be cancelled");
+  }
+
+  booking.status = "CANCELLED";
+  await booking.save();
 
   return booking;
 };
