@@ -12,7 +12,13 @@ export const createVehicle = async (
   req: Request<{}, {}, CreateVehicleInput>,
   res: Response
 ) => {
-  const vehicle = await Vehicle.create(req.body);
+  const vehicle = await Vehicle.create({
+    name: req.body.name,
+    type: req.body.type,
+    pricePerDay: req.body.pricePerDay,
+    available: req.body.available,
+    imageUrl: req.body.imageUrl, // ✅ image added
+  });
 
   res.status(201).json({
     success: true,
@@ -60,7 +66,13 @@ export const updateVehicle = async (
 ) => {
   const vehicle = await Vehicle.findByIdAndUpdate(
     req.params.id,
-    req.body,
+    {
+      name: req.body.name,
+      type: req.body.type,
+      pricePerDay: req.body.pricePerDay,
+      available: req.body.available,
+      imageUrl: req.body.imageUrl, // ✅ image added
+    },
     { new: true }
   );
 

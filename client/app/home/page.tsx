@@ -10,6 +10,7 @@ interface Vehicle {
   type: string;
   pricePerDay: number;
   available: boolean;
+  imageUrl?: string; // ✅ IMAGE FIELD
 }
 
 interface User {
@@ -28,7 +29,6 @@ export default function Page() {
     const loadData = async () => {
       setLoading(true);
 
-      // 🚗 VEHICLES (PUBLIC)
       try {
         const vehicleRes = await api.get("/vehicles");
         setVehicles(vehicleRes.data.data);
@@ -36,12 +36,11 @@ export default function Page() {
         console.error("Failed to fetch vehicles", err);
       }
 
-      // 👤 PROFILE (COOKIE AUTH)
       try {
         const userRes = await api.get("/auth/me");
         setUser(userRes.data.data);
       } catch {
-        setUser(null); // user not logged in → allowed
+        setUser(null);
       }
 
       setLoading(false);
@@ -159,14 +158,29 @@ export default function Page() {
                     key={car._id}
                     className="bg-black/40 border border-[#ec9213]/10 rounded-xl overflow-hidden hover:shadow-xl hover:shadow-[#ec9213]/10 transition"
                   >
-                    <div className="h-48 bg-black/30 flex items-center justify-center">
-                      <span className="material-icons text-6xl text-[#ec9213]/40">
-                        directions_car
-                      </span>
+                    {/* IMAGE */}
+                    <div className="relative h-48 bg-black/30 overflow-hidden">
+                      {car.imageUrl ? (
+                        <img
+                          src={car.imageUrl}
+                          alt={car.name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="material-icons text-6xl text-[#ec9213]/40">
+                            directions_car
+                          </span>
+                        </div>
+                      )}
                     </div>
 
+                    {/* INFO */}
                     <div className="p-6">
-                      <h3 className="font-bold text-xl">{car.name}</h3>
+                      <h3 className="font-bold text-xl truncate">
+                        {car.name}
+                      </h3>
                       <p className="text-sm text-slate-400">{car.type}</p>
 
                       <p className="text-[#ec9213] text-xl font-extrabold mt-2">
