@@ -1,53 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Head from "next/head";
-import api from "@/lib/api";
+import ProfileHeader from "@/app/components/profile/ProfileHeader";
+import { useVehicles } from "@/hooks/useVehicles";
+import { VehicleType } from "@/types/vehicle";
 
-interface Vehicle {
-  _id: string;
-  name: string;
-  type: string;
-  pricePerDay: number;
-  available: boolean;
-  imageUrl?: string; // ✅ IMAGE FIELD
-}
-
-interface User {
-  _id: string;
-  name: string;
-  email: string;
-  role: string;
-}
+const VEHICLE_TYPES: VehicleType[] = [
+  "All",
+  "Luxury",
+  "SUV",
+  "Sport",
+  "Electric",
+];
 
 export default function Page() {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-
-      try {
-        const vehicleRes = await api.get("/vehicles");
-        setVehicles(vehicleRes.data.data);
-      } catch (err) {
-        console.error("Failed to fetch vehicles", err);
-      }
-
-      try {
-        const userRes = await api.get("/auth/me");
-        setUser(userRes.data.data);
-      } catch {
-        setUser(null);
-      }
-
-      setLoading(false);
-    };
-
-    loadData();
-  }, []);
+  const {
+    vehicles,
+    selectedType,
+    setSelectedType,
+    loading,
+    total,
+  } = useVehicles();
 
   return (
     <>
@@ -72,28 +45,17 @@ export default function Page() {
             {/* BRAND */}
             <div className="flex items-center gap-2">
               <div className="w-10 h-10 bg-[#ec9213] rounded-lg flex items-center justify-center">
-                <span className="material-icons text-black">directions_car</span>
+                <span className="material-icons text-black">
+                  directions_car
+                </span>
               </div>
               <span className="text-xl font-extrabold tracking-tight">
                 LUXE<span className="text-[#ec9213]">DRIVE</span>
               </span>
             </div>
 
-            {/* PROFILE */}
-            {user && (
-              <div className="flex items-center gap-3">
-                <div className="hidden sm:block text-right leading-tight">
-                  <p className="text-sm font-semibold">{user.name}</p>
-                  <p className="text-xs text-[#ec9213] uppercase">
-                    {user.role}
-                  </p>
-                </div>
-
-                <div className="w-10 h-10 rounded-full border-2 border-[#ec9213] bg-black/40 flex items-center justify-center">
-                  <span className="material-icons text-[#ec9213]">person</span>
-                </div>
-              </div>
-            )}
+            {/* PROFILE (REAL BACKEND DATA) */}
+            <ProfileHeader />
           </div>
         </header>
 
@@ -101,7 +63,7 @@ export default function Page() {
         <div className="max-w-[1600px] mx-auto flex gap-8 px-6 h-[calc(100vh-5rem)]">
 
           {/* ================= SIDEBAR ================= */}
-          <aside className="hidden lg:block w-72 sticky top-20 h-full overflow-y-auto space-y-8 py-8">
+          <aside className="hidden lg:block w-72 py-8 space-y-6">
             <h3 className="text-lg font-bold flex items-center gap-2">
               <span className="material-icons text-[#ec9213]">tune</span>
               Filters
@@ -111,22 +73,25 @@ export default function Page() {
               <p className="text-sm font-semibold uppercase text-slate-400 mb-2">
                 Vehicle Type
               </p>
+
               <div className="grid grid-cols-2 gap-2">
-                {["Luxury", "SUV", "Sport", "Electric"].map((t, i) => (
+                {VEHICLE_TYPES.map((type) => (
                   <button
-                    key={t}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium ${
-                      i === 0
+                    key={type}
+                    onClick={() => setSelectedType(type)}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+                      selectedType === type
                         ? "bg-[#ec9213] text-black"
                         : "bg-black/30 border border-[#ec9213]/10 hover:bg-[#ec9213]/10"
                     }`}
                   >
-                    {t}
+                    {type}
                   </button>
                 ))}
               </div>
             </div>
 
+            {/* PROMO CARD */}
             <div className="p-6 rounded-xl bg-gradient-to-br from-[#ec9213] to-orange-600">
               <p className="text-xs uppercase tracking-widest font-bold">
                 Weekly Deal
@@ -143,10 +108,13 @@ export default function Page() {
           {/* ================= VEHICLES ================= */}
           <main className="flex-1 overflow-y-auto py-8 pr-2">
             <h1 className="text-3xl font-extrabold mb-2">
-              Available Luxury Fleet
+              {selectedType === "All"
+                ? "Available Luxury Fleet"
+                : `${selectedType} Vehicles`}
             </h1>
+
             <p className="text-slate-400 mb-8">
-              Showing {vehicles.length} cars
+              Showing {total} cars
             </p>
 
             {loading ? (
@@ -159,13 +127,12 @@ export default function Page() {
                     className="bg-black/40 border border-[#ec9213]/10 rounded-xl overflow-hidden hover:shadow-xl hover:shadow-[#ec9213]/10 transition"
                   >
                     {/* IMAGE */}
-                    <div className="relative h-48 bg-black/30 overflow-hidden">
+                    <div className="h-48 bg-black/30 overflow-hidden">
                       {car.imageUrl ? (
                         <img
                           src={car.imageUrl}
                           alt={car.name}
                           className="w-full h-full object-cover"
-                          loading="lazy"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
@@ -181,11 +148,16 @@ export default function Page() {
                       <h3 className="font-bold text-xl truncate">
                         {car.name}
                       </h3>
-                      <p className="text-sm text-slate-400">{car.type}</p>
+                      <p className="text-sm text-slate-400">
+                        {car.type}
+                      </p>
 
                       <p className="text-[#ec9213] text-xl font-extrabold mt-2">
                         ${car.pricePerDay}
-                        <span className="text-xs text-slate-400"> / day</span>
+                        <span className="text-xs text-slate-400">
+                          {" "}
+                          / day
+                        </span>
                       </p>
 
                       <button
