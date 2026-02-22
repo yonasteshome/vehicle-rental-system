@@ -27,7 +27,7 @@ router.post(
   createVehicle
 );
 
-router.get("/:id", protect, requireAdmin, getVehicleById);
+router.get("/:id", protect, getVehicleById);
 
 router.put(
   "/:id",

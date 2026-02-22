@@ -1,7 +1,5 @@
 "use client";
 
-// hooks/useVehicles.ts
-
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { Vehicle, VehicleType } from "@/types/vehicle";
@@ -18,7 +16,7 @@ export function useVehicles() {
       try {
         const res = await api.get("/vehicles");
         setAllVehicles(res.data.data);
-        setVehicles(res.data.data); // initially ALL
+        setVehicles(res.data.data);
       } catch (err) {
         console.error("Failed to fetch vehicles", err);
       } finally {
@@ -29,7 +27,6 @@ export function useVehicles() {
     fetchVehicles();
   }, []);
 
-  // 🔥 SAME FILTER LOGIC AS ORIGINAL
   useEffect(() => {
     if (selectedType === "All") {
       setVehicles(allVehicles);

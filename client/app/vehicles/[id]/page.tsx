@@ -1,0 +1,247 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import api from "@/lib/api";
+import { differenceInCalendarDays } from "date-fns";
+import { create } from "zustand";
+
+/* ================= ZUSTAND ================= */
+
+interface BookingState {
+  startDate: string;
+  endDate: string;
+  setStartDate: (v: string) => void;
+  setEndDate: (v: string) => void;
+  reset: () => void;
+}
+
+const useBookingStore = create<BookingState>((set) => ({
+  startDate: "",
+  endDate: "",
+  setStartDate: (v) => set({ startDate: v }),
+  setEndDate: (v) => set({ endDate: v }),
+  reset: () => set({ startDate: "", endDate: "" }),
+}));
+
+/* ================= TYPES ================= */
+
+interface Vehicle {
+  _id: string;
+  name: string;
+  type: string;
+  pricePerDay: number;
+  available: boolean;
+  imageUrl: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+type BookingStatus = "PENDING" | "CONFIRMED";
+
+interface Booking {
+  vehicle: string;
+  startDate: string;
+  endDate: string;
+  status: BookingStatus;
+}
+
+/* ================= PAGE ================= */
+
+export default function VehicleDetailPage() {
+  const { id } = useParams<{ id: string }>();
+
+  const { startDate, endDate, setStartDate, setEndDate, reset } =
+    useBookingStore();
+
+  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const [booking, setBooking] = useState<Booking | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [bookingLoading, setBookingLoading] = useState(false);
+
+  /* ================= FETCH ================= */
+
+  useEffect(() => {
+    if (!id) return;
+
+    const load = async () => {
+      try {
+        const [vehicleRes, bookingsRes] = await Promise.all([
+          api.get(`/vehicles/${id}`),
+          api.get(`/bookings/my`),
+        ]);
+
+        setVehicle(vehicleRes.data.data);
+
+        const existing = bookingsRes.data.data.find(
+          (b: Booking) =>
+            b.vehicle === id &&
+            ["PENDING", "CONFIRMED"].includes(b.status)
+        );
+
+        if (existing) {
+          setBooking(existing);
+          setStartDate(existing.startDate.slice(0, 10));
+          setEndDate(existing.endDate.slice(0, 10));
+        } else {
+          reset();
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [id, reset, setStartDate, setEndDate]);
+
+  /* ================= PRICE ================= */
+
+  const days = useMemo(() => {
+    if (!startDate || !endDate) return 0;
+    const diff = differenceInCalendarDays(
+      new Date(endDate),
+      new Date(startDate)
+    );
+    return diff > 0 ? diff : 0;
+  }, [startDate, endDate]);
+
+  const totalPrice = vehicle ? days * vehicle.pricePerDay : 0;
+
+  const canBook =
+    !!startDate &&
+    !!endDate &&
+    days > 0 &&
+    vehicle?.available &&
+    !bookingLoading;
+
+  /* ================= BOOK ================= */
+
+  const handleBooking = async () => {
+    if (!vehicle || !canBook) return;
+
+    try {
+      setBookingLoading(true);
+
+      const res = await api.post(
+        "/bookings",
+        {
+          vehicleId: vehicle._id,
+          startDate,
+          endDate,
+        },
+        { withCredentials: true }
+      );
+
+      setBooking(res.data.data);
+      alert("Booking successful");
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Booking failed");
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
+  /* ================= UI ================= */
+
+  if (loading || !vehicle) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        Loading vehicle...
+      </div>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-[#0f0f0f] text-white px-6 py-10">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10">
+
+        {/* LEFT */}
+        <div className="lg:col-span-8 space-y-8">
+          <div>
+            <h1 className="text-4xl font-extrabold">{vehicle.name}</h1>
+            <p className="text-gray-400 mt-2">Type: {vehicle.type}</p>
+          </div>
+
+          <div className="h-[420px] rounded-xl overflow-hidden bg-black">
+            <img
+              src={vehicle.imageUrl}
+              alt={vehicle.name}
+              className="w-full h-full object-cover"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <Spec label="Price / Day" value={`$${vehicle.pricePerDay}`} />
+            <Spec
+              label="Availability"
+              value={vehicle.available ? "Available" : "Unavailable"}
+            />
+            <Spec label="Booking Status" value={booking?.status ?? "—"} />
+          </div>
+        </div>
+
+        {/* RIGHT */}
+        <div className="lg:col-span-4">
+          <div className="sticky top-24 bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-8 space-y-6">
+
+            <div>
+              <span className="text-4xl font-extrabold text-orange-400">
+                ${vehicle.pricePerDay}
+              </span>
+              <span className="text-gray-400"> / day</span>
+            </div>
+
+            {/* DATE INPUTS */}
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full bg-black border border-[#2a2a2a] rounded-lg p-3"
+            />
+
+            <input
+              type="date"
+              value={endDate}
+              min={startDate || undefined}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full bg-black border border-[#2a2a2a] rounded-lg p-3"
+            />
+
+            <div className="border-t border-[#2a2a2a] pt-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span>
+                  {vehicle.pricePerDay} × {days} days
+                </span>
+                <span>${totalPrice}</span>
+              </div>
+
+              <div className="flex justify-between font-bold text-lg">
+                <span>Total</span>
+                <span className="text-orange-400">${totalPrice}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleBooking}
+              disabled={!canBook}
+              className="w-full bg-orange-400 hover:bg-orange-500 disabled:opacity-40 text-black font-bold py-4 rounded-xl"
+            >
+              {bookingLoading ? "Booking..." : "Confirm Booking"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+/* ================= HELPER ================= */
+
+function Spec({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-5 text-center">
+      <p className="text-xs text-gray-400">{label}</p>
+      <p className="font-bold mt-1">{value}</p>
+    </div>
+  );
+}

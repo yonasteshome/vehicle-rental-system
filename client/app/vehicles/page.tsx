@@ -1,6 +1,7 @@
 "use client";
 
 import Head from "next/head";
+import Link from "next/link";
 import ProfileHeader from "@/app/components/profile/ProfileHeader";
 import { useVehicles } from "@/hooks/useVehicles";
 import { VehicleType } from "@/types/vehicle";
@@ -41,8 +42,6 @@ export default function Page() {
         {/* ================= HEADER ================= */}
         <header className="sticky top-0 z-50 border-b border-[#ec9213]/10 bg-[#221a10]/80 backdrop-blur-md">
           <div className="max-w-[1600px] mx-auto px-6 h-20 flex items-center justify-between">
-
-            {/* BRAND */}
             <div className="flex items-center gap-2">
               <div className="w-10 h-10 bg-[#ec9213] rounded-lg flex items-center justify-center">
                 <span className="material-icons text-black">
@@ -54,7 +53,6 @@ export default function Page() {
               </span>
             </div>
 
-            {/* PROFILE (REAL BACKEND DATA) */}
             <ProfileHeader />
           </div>
         </header>
@@ -91,7 +89,6 @@ export default function Page() {
               </div>
             </div>
 
-            {/* PROMO CARD */}
             <div className="p-6 rounded-xl bg-gradient-to-br from-[#ec9213] to-orange-600">
               <p className="text-xs uppercase tracking-widest font-bold">
                 Weekly Deal
@@ -126,7 +123,6 @@ export default function Page() {
                     key={car._id}
                     className="bg-black/40 border border-[#ec9213]/10 rounded-xl overflow-hidden hover:shadow-xl hover:shadow-[#ec9213]/10 transition"
                   >
-                    {/* IMAGE */}
                     <div className="h-48 bg-black/30 overflow-hidden">
                       {car.imageUrl ? (
                         <img
@@ -143,7 +139,6 @@ export default function Page() {
                       )}
                     </div>
 
-                    {/* INFO */}
                     <div className="p-6">
                       <h3 className="font-bold text-xl truncate">
                         {car.name}
@@ -154,22 +149,25 @@ export default function Page() {
 
                       <p className="text-[#ec9213] text-xl font-extrabold mt-2">
                         ${car.pricePerDay}
-                        <span className="text-xs text-slate-400">
-                          {" "}
-                          / day
-                        </span>
+                        <span className="text-xs text-slate-400"> / day</span>
                       </p>
 
-                      <button
-                        disabled={!car.available}
-                        className={`mt-6 w-full py-3 font-bold rounded-lg ${
-                          car.available
-                            ? "bg-[#ec9213] text-black hover:bg-orange-500"
-                            : "bg-gray-700 text-gray-400 cursor-not-allowed"
-                        }`}
-                      >
-                        {car.available ? "Rent Now →" : "Unavailable"}
-                      </button>
+                      {/* 🚀 FAST REDIRECT */}
+                      {car.available ? (
+                        <Link
+                          href={`/vehicles/${car._id}`}
+                          className="mt-6 block w-full text-center py-3 font-bold rounded-lg bg-[#ec9213] text-black hover:bg-orange-500 transition"
+                        >
+                          Rent Now →
+                        </Link>
+                      ) : (
+                        <button
+                          disabled
+                          className="mt-6 w-full py-3 font-bold rounded-lg bg-gray-700 text-gray-400 cursor-not-allowed"
+                        >
+                          Unavailable
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
