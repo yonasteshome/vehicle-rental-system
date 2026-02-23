@@ -5,24 +5,50 @@ import { useParams } from "next/navigation";
 import api from "@/lib/api";
 import { differenceInCalendarDays } from "date-fns";
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 /* ================= ZUSTAND ================= */
+
+type BookingStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "CANCELLED"
+  | "COMPLETED"
+  | null;
 
 interface BookingState {
   startDate: string;
   endDate: string;
+  status: BookingStatus;
   setStartDate: (v: string) => void;
   setEndDate: (v: string) => void;
+  setStatus: (s: BookingStatus) => void;
   reset: () => void;
 }
 
-const useBookingStore = create<BookingState>((set) => ({
-  startDate: "",
-  endDate: "",
-  setStartDate: (v) => set({ startDate: v }),
-  setEndDate: (v) => set({ endDate: v }),
-  reset: () => set({ startDate: "", endDate: "" }),
-}));
+const useBookingStore = create<BookingState>()(
+  persist(
+    (set) => ({
+      startDate: "",
+      endDate: "",
+      status: null,
+
+      setStartDate: (v) => set({ startDate: v }),
+      setEndDate: (v) => set({ endDate: v }),
+      setStatus: (s) => set({ status: s }),
+
+      reset: () =>
+        set({
+          startDate: "",
+          endDate: "",
+          status: null,
+        }),
+    }),
+    {
+      name: "vehicle-booking-storage",
+    }
+  )
+);
 
 /* ================= TYPES ================= */
 
@@ -33,11 +59,7 @@ interface Vehicle {
   pricePerDay: number;
   available: boolean;
   imageUrl: string;
-  createdAt: string;
-  updatedAt: string;
 }
-
-type BookingStatus = "PENDING" | "CONFIRMED";
 
 interface Booking {
   vehicle: string;
@@ -51,11 +73,17 @@ interface Booking {
 export default function VehicleDetailPage() {
   const { id } = useParams<{ id: string }>();
 
-  const { startDate, endDate, setStartDate, setEndDate, reset } =
-    useBookingStore();
+  const {
+    startDate,
+    endDate,
+    status,
+    setStartDate,
+    setEndDate,
+    setStatus,
+    reset,
+  } = useBookingStore();
 
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [bookingLoading, setBookingLoading] = useState(false);
 
@@ -68,7 +96,7 @@ export default function VehicleDetailPage() {
       try {
         const [vehicleRes, bookingsRes] = await Promise.all([
           api.get(`/vehicles/${id}`),
-          api.get(`/bookings/my`),
+          api.get(`/bookings/my`, { withCredentials: true }),
         ]);
 
         setVehicle(vehicleRes.data.data);
@@ -76,23 +104,27 @@ export default function VehicleDetailPage() {
         const existing = bookingsRes.data.data.find(
           (b: Booking) =>
             b.vehicle === id &&
-            ["PENDING", "CONFIRMED"].includes(b.status)
+            ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"].includes(
+              b.status as string
+            )
         );
 
         if (existing) {
-          setBooking(existing);
           setStartDate(existing.startDate.slice(0, 10));
           setEndDate(existing.endDate.slice(0, 10));
+          setStatus(existing.status);
         } else {
           reset();
         }
+      } catch (err) {
+        console.error("Failed to load vehicle or booking", err);
       } finally {
         setLoading(false);
       }
     };
 
     load();
-  }, [id, reset, setStartDate, setEndDate]);
+  }, [id, reset, setStartDate, setEndDate, setStatus]);
 
   /* ================= PRICE ================= */
 
@@ -107,12 +139,15 @@ export default function VehicleDetailPage() {
 
   const totalPrice = vehicle ? days * vehicle.pricePerDay : 0;
 
+  /* ================= BOOK RULE ================= */
+
   const canBook =
     !!startDate &&
     !!endDate &&
     days > 0 &&
     vehicle?.available &&
-    !bookingLoading;
+    !bookingLoading &&
+    (!status || status === "PENDING");
 
   /* ================= BOOK ================= */
 
@@ -132,7 +167,7 @@ export default function VehicleDetailPage() {
         { withCredentials: true }
       );
 
-      setBooking(res.data.data);
+      setStatus(res.data.data.status);
       alert("Booking successful");
     } catch (err: any) {
       alert(err?.response?.data?.message || "Booking failed");
@@ -176,7 +211,7 @@ export default function VehicleDetailPage() {
               label="Availability"
               value={vehicle.available ? "Available" : "Unavailable"}
             />
-            <Spec label="Booking Status" value={booking?.status ?? "—"} />
+            <Spec label="Booking Status" value={status ?? "—"} />
           </div>
         </div>
 
@@ -191,7 +226,6 @@ export default function VehicleDetailPage() {
               <span className="text-gray-400"> / day</span>
             </div>
 
-            {/* DATE INPUTS */}
             <input
               type="date"
               value={startDate}
@@ -226,7 +260,11 @@ export default function VehicleDetailPage() {
               disabled={!canBook}
               className="w-full bg-orange-400 hover:bg-orange-500 disabled:opacity-40 text-black font-bold py-4 rounded-xl"
             >
-              {bookingLoading ? "Booking..." : "Confirm Booking"}
+              {bookingLoading
+                ? "Booking..."
+                : status && status !== "PENDING"
+                ? "Booking Locked"
+                : "Confirm Booking"}
             </button>
           </div>
         </div>
