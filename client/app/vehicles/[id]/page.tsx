@@ -44,9 +44,7 @@ const useBookingStore = create<BookingState>()(
           status: null,
         }),
     }),
-    {
-      name: "vehicle-booking-storage",
-    }
+    { name: "vehicle-booking-storage" }
   )
 );
 
@@ -62,7 +60,7 @@ interface Vehicle {
 }
 
 interface Booking {
-  vehicle: string;
+  vehicle: { _id: string };
   startDate: string;
   endDate: string;
   status: BookingStatus;
@@ -103,7 +101,7 @@ export default function VehicleDetailPage() {
 
         const existing = bookingsRes.data.data.find(
           (b: Booking) =>
-            b.vehicle === id &&
+            b.vehicle?._id === id &&
             ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"].includes(
               b.status as string
             )
@@ -117,7 +115,8 @@ export default function VehicleDetailPage() {
           reset();
         }
       } catch (err) {
-        console.error("Failed to load vehicle or booking", err);
+        console.error(err);
+        reset();
       } finally {
         setLoading(false);
       }
@@ -139,7 +138,7 @@ export default function VehicleDetailPage() {
 
   const totalPrice = vehicle ? days * vehicle.pricePerDay : 0;
 
-  /* ================= BOOK RULE ================= */
+  /* ================= RULE ================= */
 
   const canBook =
     !!startDate &&

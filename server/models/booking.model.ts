@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface IBooking extends Document {
   user: mongoose.Types.ObjectId;
@@ -6,6 +6,8 @@ export interface IBooking extends Document {
   startDate: Date;
   endDate: Date;
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const bookingSchema = new Schema<IBooking>(
@@ -34,7 +36,26 @@ const bookingSchema = new Schema<IBooking>(
       default: "PENDING",
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-export default mongoose.model<IBooking>("Booking", bookingSchema);
+/**
+ * 🚨 CRITICAL INDEX (DO NOT SKIP)
+ * Prevents duplicate active bookings (PENDING / CONFIRMED)
+ */
+bookingSchema.index(
+  { user: 1, vehicle: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      status: { $in: ["PENDING", "CONFIRMED"] },
+    },
+  }
+);
+
+const Booking: Model<IBooking> =
+  mongoose.models.Booking || mongoose.model<IBooking>("Booking", bookingSchema);
+
+export default Booking;

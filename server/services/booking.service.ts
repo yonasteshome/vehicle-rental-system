@@ -11,8 +11,23 @@ export const createBooking = async (
     endDate: Date;
   }
 ) => {
-  const vehicle = await Vehicle.findById(data.vehicleId);
+  const { vehicleId, startDate, endDate } = data;
 
+  // 🔒 BLOCK duplicate active bookings
+  const existingBooking = await Booking.findOne({
+    user: userId,
+    vehicle: vehicleId,
+    status: { $in: ["PENDING", "CONFIRMED"] },
+  });
+
+  if (existingBooking) {
+    throw new Error(
+      `You already have an active booking (${existingBooking.status})`
+    );
+  }
+
+  // 🚗 Check vehicle
+  const vehicle = await Vehicle.findById(vehicleId);
   if (!vehicle) {
     throw new Error("Vehicle not found");
   }
@@ -21,36 +36,43 @@ export const createBooking = async (
     throw new Error("Vehicle is not available");
   }
 
-  const booking = await Booking.create({
-    user: userId, // 👉 references carUser
-    vehicle: data.vehicleId,
-    startDate: data.startDate,
-    endDate: data.endDate,
-    status: "PENDING",
-  });
+  try {
+    const booking = await Booking.create({
+      user: new mongoose.Types.ObjectId(userId),
+      vehicle: new mongoose.Types.ObjectId(vehicleId),
+      startDate,
+      endDate,
+      status: "PENDING",
+    });
 
-  return booking;
+    return booking;
+  } catch (err: any) {
+    // 🛡️ MongoDB race-condition protection
+    if (err.code === 11000) {
+      throw new Error("You already have an active booking for this vehicle");
+    }
+    throw err;
+  }
 };
 
 /* ================= USER BOOKINGS ================= */
 export const getUserBookings = async (userId: string) => {
-  return Booking.find({ user: userId })
-    .populate("vehicle");
+  return Booking.find({ user: userId }).populate("vehicle");
 };
 
 /* ================= ADMIN BOOKINGS ================= */
 export const getAllBookings = async () => {
   return Booking.find()
-    .populate({
-      path: "user",
-      model: "carUser", // ✅ IMPORTANT FIX
-      select: "name email role",
-    })
-    .populate("vehicle");
+    .populate("vehicle")
+    .populate("user", "name email role");
 };
 
 /* ================= ADMIN CONFIRM ================= */
 export const confirmBooking = async (bookingId: string) => {
+  if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+    throw new Error("Invalid booking ID");
+  }
+
   const booking = await Booking.findById(bookingId);
 
   if (!booking) {
@@ -69,10 +91,18 @@ export const confirmBooking = async (bookingId: string) => {
 
 /* ================= ADMIN CANCEL ================= */
 export const cancelBooking = async (bookingId: string) => {
+  if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+    throw new Error("Invalid booking ID");
+  }
+
   const booking = await Booking.findById(bookingId);
 
   if (!booking) {
     throw new Error("Booking not found");
+  }
+
+  if (booking.status === "CANCELLED") {
+    throw new Error("Booking is already cancelled");
   }
 
   booking.status = "CANCELLED";
@@ -100,7 +130,9 @@ export const cancelOwnBooking = async (
   }
 
   if (booking.status !== "PENDING") {
-    throw new Error("Only pending bookings can be cancelled");
+    throw new Error(
+      `Cannot cancel booking with status ${booking.status}`
+    );
   }
 
   booking.status = "CANCELLED";
