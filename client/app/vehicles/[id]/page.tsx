@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { differenceInCalendarDays } from "date-fns";
 import { create } from "zustand";
@@ -20,9 +20,11 @@ interface BookingState {
   startDate: string;
   endDate: string;
   status: BookingStatus;
+  bookingId: string | null;
   setStartDate: (v: string) => void;
   setEndDate: (v: string) => void;
   setStatus: (s: BookingStatus) => void;
+  setBookingId: (id: string | null) => void;
   reset: () => void;
 }
 
@@ -32,16 +34,19 @@ const useBookingStore = create<BookingState>()(
       startDate: "",
       endDate: "",
       status: null,
+      bookingId: null,
 
       setStartDate: (v) => set({ startDate: v }),
       setEndDate: (v) => set({ endDate: v }),
       setStatus: (s) => set({ status: s }),
+      setBookingId: (id) => set({ bookingId: id }),
 
       reset: () =>
         set({
           startDate: "",
           endDate: "",
           status: null,
+          bookingId: null,
         }),
     }),
     { name: "vehicle-booking-storage" }
@@ -60,6 +65,7 @@ interface Vehicle {
 }
 
 interface Booking {
+  _id: string;
   vehicle: { _id: string };
   startDate: string;
   endDate: string;
@@ -70,21 +76,23 @@ interface Booking {
 
 export default function VehicleDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
 
   const {
     startDate,
     endDate,
     status,
+    bookingId,
     setStartDate,
     setEndDate,
     setStatus,
+    setBookingId,
     reset,
   } = useBookingStore();
 
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
   const [bookingLoading, setBookingLoading] = useState(false);
-  const [paymentLoading, setPaymentLoading] = useState(false); // ✅ ADDED
 
   /* ================= FETCH ================= */
 
@@ -101,17 +109,14 @@ export default function VehicleDetailPage() {
         setVehicle(vehicleRes.data.data);
 
         const existing = bookingsRes.data.data.find(
-          (b: Booking) =>
-            b.vehicle?._id === id &&
-            ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"].includes(
-              b.status as string
-            )
+          (b: Booking) => b.vehicle?._id === id
         );
 
         if (existing) {
           setStartDate(existing.startDate.slice(0, 10));
           setEndDate(existing.endDate.slice(0, 10));
           setStatus(existing.status);
+          setBookingId(existing._id);
         } else {
           reset();
         }
@@ -124,7 +129,7 @@ export default function VehicleDetailPage() {
     };
 
     load();
-  }, [id, reset, setStartDate, setEndDate, setStatus]);
+  }, [id, reset, setStartDate, setEndDate, setStatus, setBookingId]);
 
   /* ================= PRICE ================= */
 
@@ -168,6 +173,8 @@ export default function VehicleDetailPage() {
       );
 
       setStatus(res.data.data.status);
+      setBookingId(res.data.data._id);
+
       alert("Booking successful");
     } catch (err: any) {
       alert(err?.response?.data?.message || "Booking failed");
@@ -176,29 +183,11 @@ export default function VehicleDetailPage() {
     }
   };
 
-  /* ================= PAY (ADDED ONLY) ================= */
+  /* ================= PAY (REDIRECT ONLY) ================= */
 
-  const handlePayment = async () => {
-    if (!vehicle || status !== "PENDING") return;
-
-    try {
-      setPaymentLoading(true);
-
-      await api.post(
-        "/payments",
-        {
-          vehicleId: vehicle._id,
-          amount: totalPrice,
-        },
-        { withCredentials: true }
-      );
-
-      alert("Payment successful. Waiting for confirmation.");
-    } catch (err: any) {
-      alert(err?.response?.data?.message || "Payment failed");
-    } finally {
-      setPaymentLoading(false);
-    }
+  const handlePayment = () => {
+    if (!bookingId) return;
+    router.push(`/payment/${bookingId}`);
   };
 
   /* ================= UI ================= */
@@ -280,7 +269,7 @@ export default function VehicleDetailPage() {
               </div>
             </div>
 
-            {/* EXISTING BOOK BUTTON (UNCHANGED) */}
+            {/* BOOK */}
             <button
               onClick={handleBooking}
               disabled={!canBook}
@@ -293,14 +282,13 @@ export default function VehicleDetailPage() {
                 : "Confirm Booking"}
             </button>
 
-            {/* ✅ PAY NOW BUTTON (ONLY ADDED PART) */}
-            {status === "PENDING" && (
+            {/* ✅ PAY NOW — CONFIRMED ONLY */}
+            {status === "CONFIRMED" && bookingId && (
               <button
                 onClick={handlePayment}
-                disabled={paymentLoading}
-                className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-40 text-black font-bold py-4 rounded-xl"
+                className="w-full bg-green-500 hover:bg-green-600 text-black font-bold py-4 rounded-xl"
               >
-                {paymentLoading ? "Processing Payment..." : "Pay Now"}
+                Pay Now
               </button>
             )}
 
