@@ -84,6 +84,7 @@ export default function VehicleDetailPage() {
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
   const [bookingLoading, setBookingLoading] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false); // ✅ ADDED
 
   /* ================= FETCH ================= */
 
@@ -175,6 +176,31 @@ export default function VehicleDetailPage() {
     }
   };
 
+  /* ================= PAY (ADDED ONLY) ================= */
+
+  const handlePayment = async () => {
+    if (!vehicle || status !== "PENDING") return;
+
+    try {
+      setPaymentLoading(true);
+
+      await api.post(
+        "/payments",
+        {
+          vehicleId: vehicle._id,
+          amount: totalPrice,
+        },
+        { withCredentials: true }
+      );
+
+      alert("Payment successful. Waiting for confirmation.");
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Payment failed");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
   /* ================= UI ================= */
 
   if (loading || !vehicle) {
@@ -254,6 +280,7 @@ export default function VehicleDetailPage() {
               </div>
             </div>
 
+            {/* EXISTING BOOK BUTTON (UNCHANGED) */}
             <button
               onClick={handleBooking}
               disabled={!canBook}
@@ -265,6 +292,18 @@ export default function VehicleDetailPage() {
                 ? "Booking Locked"
                 : "Confirm Booking"}
             </button>
+
+            {/* ✅ PAY NOW BUTTON (ONLY ADDED PART) */}
+            {status === "PENDING" && (
+              <button
+                onClick={handlePayment}
+                disabled={paymentLoading}
+                className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-40 text-black font-bold py-4 rounded-xl"
+              >
+                {paymentLoading ? "Processing Payment..." : "Pay Now"}
+              </button>
+            )}
+
           </div>
         </div>
       </div>
