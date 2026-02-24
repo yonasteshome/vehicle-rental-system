@@ -1,196 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import api from "@/lib/api";
-import { differenceInCalendarDays } from "date-fns";
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
-
-/* ================= ZUSTAND ================= */
-
-type BookingStatus =
-  | "PENDING"
-  | "CONFIRMED"
-  | "CANCELLED"
-  | "COMPLETED"
-  | null;
-
-interface BookingState {
-  startDate: string;
-  endDate: string;
-  status: BookingStatus;
-  bookingId: string | null;
-  setStartDate: (v: string) => void;
-  setEndDate: (v: string) => void;
-  setStatus: (s: BookingStatus) => void;
-  setBookingId: (id: string | null) => void;
-  reset: () => void;
-}
-
-const useBookingStore = create<BookingState>()(
-  persist(
-    (set) => ({
-      startDate: "",
-      endDate: "",
-      status: null,
-      bookingId: null,
-
-      setStartDate: (v) => set({ startDate: v }),
-      setEndDate: (v) => set({ endDate: v }),
-      setStatus: (s) => set({ status: s }),
-      setBookingId: (id) => set({ bookingId: id }),
-
-      reset: () =>
-        set({
-          startDate: "",
-          endDate: "",
-          status: null,
-          bookingId: null,
-        }),
-    }),
-    { name: "vehicle-booking-storage" }
-  )
-);
-
-/* ================= TYPES ================= */
-
-interface Vehicle {
-  _id: string;
-  name: string;
-  type: string;
-  pricePerDay: number;
-  available: boolean;
-  imageUrl: string;
-}
-
-interface Booking {
-  _id: string;
-  vehicle: { _id: string };
-  startDate: string;
-  endDate: string;
-  status: BookingStatus;
-}
+import { useVehicleBooking } from "@/hooks/useVehicleBooking";
 
 /* ================= PAGE ================= */
 
 export default function VehicleDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const router = useRouter();
-
   const {
+    vehicle,
+    loading,
+    bookingLoading,
     startDate,
     endDate,
     status,
-    bookingId,
+    days,
+    totalPrice,
+    canBook,
     setStartDate,
     setEndDate,
-    setStatus,
-    setBookingId,
-    reset,
-  } = useBookingStore();
-
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [bookingLoading, setBookingLoading] = useState(false);
-
-  /* ================= FETCH ================= */
-
-  useEffect(() => {
-    if (!id) return;
-
-    const load = async () => {
-      try {
-        const [vehicleRes, bookingsRes] = await Promise.all([
-          api.get(`/vehicles/${id}`),
-          api.get(`/bookings/my`, { withCredentials: true }),
-        ]);
-
-        setVehicle(vehicleRes.data.data);
-
-        const existing = bookingsRes.data.data.find(
-          (b: Booking) => b.vehicle?._id === id
-        );
-
-        if (existing) {
-          setStartDate(existing.startDate.slice(0, 10));
-          setEndDate(existing.endDate.slice(0, 10));
-          setStatus(existing.status);
-          setBookingId(existing._id);
-        } else {
-          reset();
-        }
-      } catch (err) {
-        console.error(err);
-        reset();
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
-  }, [id, reset, setStartDate, setEndDate, setStatus, setBookingId]);
-
-  /* ================= PRICE ================= */
-
-  const days = useMemo(() => {
-    if (!startDate || !endDate) return 0;
-    const diff = differenceInCalendarDays(
-      new Date(endDate),
-      new Date(startDate)
-    );
-    return diff > 0 ? diff : 0;
-  }, [startDate, endDate]);
-
-  const totalPrice = vehicle ? days * vehicle.pricePerDay : 0;
-
-  /* ================= RULE ================= */
-
-  const canBook =
-    !!startDate &&
-    !!endDate &&
-    days > 0 &&
-    vehicle?.available &&
-    !bookingLoading &&
-    (!status || status === "PENDING");
-
-  /* ================= BOOK ================= */
-
-  const handleBooking = async () => {
-    if (!vehicle || !canBook) return;
-
-    try {
-      setBookingLoading(true);
-
-      const res = await api.post(
-        "/bookings",
-        {
-          vehicleId: vehicle._id,
-          startDate,
-          endDate,
-        },
-        { withCredentials: true }
-      );
-
-      setStatus(res.data.data.status);
-      setBookingId(res.data.data._id);
-
-      alert("Booking successful");
-    } catch (err: any) {
-      alert(err?.response?.data?.message || "Booking failed");
-    } finally {
-      setBookingLoading(false);
-    }
-  };
-
-  /* ================= PAY (REDIRECT ONLY) ================= */
-
-  const handlePayment = () => {
-    if (!bookingId) return;
-    router.push(`/payment/${bookingId}`);
-  };
-
-  /* ================= UI ================= */
+    book,
+    goToPayment,
+  } = useVehicleBooking();
 
   if (loading || !vehicle) {
     return (
@@ -271,7 +100,7 @@ export default function VehicleDetailPage() {
 
             {/* BOOK */}
             <button
-              onClick={handleBooking}
+              onClick={book}
               disabled={!canBook}
               className="w-full bg-orange-400 hover:bg-orange-500 disabled:opacity-40 text-black font-bold py-4 rounded-xl"
             >
@@ -282,16 +111,15 @@ export default function VehicleDetailPage() {
                 : "Confirm Booking"}
             </button>
 
-            {/* ✅ PAY NOW — CONFIRMED ONLY */}
-            {status === "CONFIRMED" && bookingId && (
+            {/* PAY */}
+            {status === "CONFIRMED" && (
               <button
-                onClick={handlePayment}
+                onClick={goToPayment}
                 className="w-full bg-green-500 hover:bg-green-600 text-black font-bold py-4 rounded-xl"
               >
                 Pay Now
               </button>
             )}
-
           </div>
         </div>
       </div>

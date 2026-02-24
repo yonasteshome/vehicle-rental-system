@@ -33,7 +33,7 @@ export default function PaymentPage() {
       );
 
       alert("Payment successful");
-      router.push("/my-bookings"); // or wherever you want
+      router.push("/vehicles"); // or wherever you want
     } catch (err: any) {
       setError(err?.response?.data?.message || "Payment failed");
     } finally {

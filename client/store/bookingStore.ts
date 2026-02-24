@@ -1,19 +1,43 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { BookingStatus } from "@/types/booking";
 
-interface BookingState {
-  startDate: Date | null;
-  endDate: Date | null;
+export interface BookingState {
+  startDate: string;
+  endDate: string;
+  status: BookingStatus;
+  bookingId: string | null;
 
-  setStartDate: (date: Date | null) => void;
-  setEndDate: (date: Date | null) => void;
-  resetDates: () => void;
+  setStartDate: (v: string) => void;
+  setEndDate: (v: string) => void;
+  setStatus: (s: BookingStatus) => void;
+  setBookingId: (id: string | null) => void;
+  reset: () => void;
 }
 
-export const useBookingStore = create<BookingState>((set) => ({
-  startDate: null,
-  endDate: null,
+export const useBookingStore = create<BookingState>()(
+  persist(
+    (set) => ({
+      startDate: "",
+      endDate: "",
+      status: null,
+      bookingId: null,
 
-  setStartDate: (date) => set({ startDate: date }),
-  setEndDate: (date) => set({ endDate: date }),
-  resetDates: () => set({ startDate: null, endDate: null }),
-}));
+      setStartDate: (v) => set({ startDate: v }),
+      setEndDate: (v) => set({ endDate: v }),
+      setStatus: (s) => set({ status: s }),
+      setBookingId: (id) => set({ bookingId: id }),
+
+      reset: () =>
+        set({
+          startDate: "",
+          endDate: "",
+          status: null,
+          bookingId: null,
+        }),
+    }),
+    {
+      name: "vehicle-booking-storage",
+    }
+  )
+);
