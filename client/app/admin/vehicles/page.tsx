@@ -1,25 +1,94 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import api from "@/lib/api";
 import ProfileHeader from "@/app/components/profile/ProfileHeader";
-import {
-  useAdminVehicles,
-  VEHICLE_TYPES,
-  Vehicle,
-  VehicleType,
-} from "../../../hooks/useAdminVehicles";
 
-export default function AdminVehiclesPage() {
-  const {
-    vehicles,
-    loading,
-    saving,
-    form,
-    editingId,
-    setForm,
-    submit,
-    edit,
-    remove,
-  } = useAdminVehicles();
+/* ================= TYPES ================= */
+
+type BookingStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "CANCELLED"
+  | "COMPLETED";
+
+interface Vehicle {
+  name: string;
+  imageUrl: string;
+  pricePerDay: number;
+}
+
+interface Booking {
+  _id: string;
+  vehicle: Vehicle | null; // 🔒 VERY IMPORTANT
+  startDate: string;
+  endDate: string;
+  status: BookingStatus;
+}
+
+/* ================= PAGE ================= */
+
+export default function AdminBookingsPage() {
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  /* ================= FETCH ================= */
+
+  const fetchBookings = async () => {
+    try {
+      const res = await api.get("/bookings", {
+        withCredentials: true, // ✅ HttpOnly cookies
+      });
+      setBookings(res.data.data);
+    } catch {
+      alert("Failed to load bookings");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBookings();
+  }, []);
+
+  /* ================= ACTIONS ================= */
+
+  const confirmBooking = async (id: string) => {
+    try {
+      setActionLoading(id);
+      await api.put(
+        `/bookings/${id}/confirm`,
+        {},
+        { withCredentials: true }
+      );
+      fetchBookings();
+    } catch {
+      alert("Confirm failed");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const cancelBooking = async (id: string) => {
+    if (!confirm("Cancel this booking?")) return;
+
+    try {
+      setActionLoading(id);
+      await api.put(
+        `/bookings/${id}/cancel`,
+        {},
+        { withCredentials: true }
+      );
+      fetchBookings();
+    } catch {
+      alert("Cancel failed");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  /* ================= UI ================= */
 
   return (
     <div className="bg-[#221a10] text-slate-100 min-h-screen font-[Plus_Jakarta_Sans] overflow-hidden">
@@ -28,145 +97,93 @@ export default function AdminVehiclesPage() {
       <header className="sticky top-0 z-50 h-20 border-b border-[#ec9213]/10 bg-[#221a10]/80 backdrop-blur-md">
         <div className="max-w-[1600px] mx-auto px-6 h-full flex items-center justify-between">
           <h1 className="text-2xl font-extrabold tracking-tight">
-            Admin · Vehicle Management
+            Admin · Bookings
           </h1>
           <ProfileHeader />
         </div>
       </header>
 
       {/* BODY */}
-      <div className="max-w-[1600px] mx-auto px-6 grid grid-cols-1 xl:grid-cols-3 gap-8 h-[calc(100vh-5rem)]">
+      <div className="max-w-[1600px] mx-auto px-6 py-8 h-[calc(100vh-5rem)] overflow-y-auto">
 
-        {/* LEFT — FIXED FORM */}
-        <aside className="xl:col-span-1 py-8">
-          <div className="sticky top-28 bg-gradient-to-br from-black/50 to-black/30 border border-[#ec9213]/10 rounded-2xl p-8 shadow-xl">
-
-            <h2 className="text-xl font-bold mb-6">
-              {editingId ? "Edit Vehicle" : "Create Vehicle"}
-            </h2>
-
-            <div className="space-y-5">
-              <input
-                className="w-full px-4 py-3 rounded-xl bg-black/40 border border-[#ec9213]/10 focus:outline-none focus:ring-2 focus:ring-[#ec9213]"
-                placeholder="Vehicle name"
-                value={form.name}
-                onChange={(e) =>
-                  setForm({ ...form, name: e.target.value })
-                }
-              />
-
-              <select
-                className="w-full px-4 py-3 rounded-xl bg-black/40 border border-[#ec9213]/10"
-                value={form.type}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    type: e.target.value as VehicleType,
-                  })
-                }
+        {loading ? (
+          <p className="text-slate-400">Loading bookings…</p>
+        ) : bookings.length === 0 ? (
+          <p className="text-slate-400">No bookings found</p>
+        ) : (
+          <div className="space-y-6">
+            {bookings.map((b) => (
+              <div
+                key={b._id}
+                className="flex gap-6 bg-black/40 border border-[#ec9213]/10 rounded-2xl p-6"
               >
-                {VEHICLE_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                type="number"
-                className="w-full px-4 py-3 rounded-xl bg-black/40 border border-[#ec9213]/10"
-                placeholder="Price per day"
-                value={form.pricePerDay}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    pricePerDay: Number(e.target.value),
-                  })
-                }
-              />
-
-              <input
-                className="w-full px-4 py-3 rounded-xl bg-black/40 border border-[#ec9213]/10"
-                placeholder="Image URL"
-                value={form.imageUrl}
-                onChange={(e) =>
-                  setForm({ ...form, imageUrl: e.target.value })
-                }
-              />
-
-              <label className="flex items-center gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.available}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      available: e.target.checked,
-                    })
-                  }
-                />
-                Available for booking
-              </label>
-
-              <button
-                onClick={submit}
-                disabled={saving}
-                className="w-full py-3 rounded-xl font-bold bg-[#ec9213] text-black hover:bg-orange-500 transition"
-              >
-                {editingId ? "Update Vehicle" : "Create Vehicle"}
-              </button>
-            </div>
-          </div>
-        </aside>
-
-        {/* RIGHT — SCROLLABLE LIST */}
-        <main className="xl:col-span-2 py-8 overflow-y-auto pr-2">
-          {loading ? (
-            <p className="text-slate-400">Loading vehicles…</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {vehicles.map((v: Vehicle) => (
-                <div
-                  key={v._id}
-                  className="group bg-black/40 border border-[#ec9213]/10 rounded-2xl overflow-hidden hover:shadow-2xl hover:shadow-[#ec9213]/10 transition"
-                >
-                  <div className="h-44 overflow-hidden">
-                    <img
-                      src={v.imageUrl}
-                      alt={v.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition"
-                    />
+                {/* IMAGE — SAFE */}
+                {b.vehicle ? (
+                  <img
+                    src={b.vehicle.imageUrl}
+                    alt={b.vehicle.name}
+                    className="w-40 h-28 object-cover rounded-xl"
+                  />
+                ) : (
+                  <div className="w-40 h-28 rounded-xl bg-black/50 flex items-center justify-center text-sm text-slate-400">
+                    Vehicle deleted
                   </div>
+                )}
 
-                  <div className="p-6 space-y-2">
-                    <h3 className="text-lg font-bold">{v.name}</h3>
-                    <p className="text-sm text-slate-400">{v.type}</p>
+                {/* INFO */}
+                <div className="flex-1 space-y-2">
+                  <h2 className="text-xl font-bold">
+                    {b.vehicle?.name ?? "Unknown Vehicle"}
+                  </h2>
 
-                    <p className="text-[#ec9213] font-extrabold">
-                      ${v.pricePerDay} / day
-                    </p>
+                  <p className="text-sm text-slate-400">
+                    {new Date(b.startDate).toDateString()} →{" "}
+                    {new Date(b.endDate).toDateString()}
+                  </p>
 
-                    <div className="flex gap-3 pt-4">
-                      <button
-                        onClick={() => edit(v)}
-                        className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-500"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => remove(v._id)}
-                        className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-500"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
+                  <p className="text-[#ec9213] font-bold">
+                    ${b.vehicle?.pricePerDay ?? "--"} / day
+                  </p>
+
+                  <span
+                    className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
+                      b.status === "PENDING"
+                        ? "bg-yellow-500/20 text-yellow-400"
+                        : b.status === "CONFIRMED"
+                        ? "bg-green-500/20 text-green-400"
+                        : "bg-red-500/20 text-red-400"
+                    }`}
+                  >
+                    {b.status}
+                  </span>
                 </div>
-              ))}
-            </div>
-          )}
-        </main>
 
+                {/* ACTIONS */}
+                <div className="flex flex-col gap-3 justify-center">
+                  {b.status === "PENDING" && (
+                    <>
+                      <button
+                        onClick={() => confirmBooking(b._id)}
+                        disabled={actionLoading === b._id}
+                        className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 font-bold"
+                      >
+                        Confirm
+                      </button>
+
+                      <button
+                        onClick={() => cancelBooking(b._id)}
+                        disabled={actionLoading === b._id}
+                        className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 font-bold"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
