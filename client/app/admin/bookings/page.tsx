@@ -1,146 +1,278 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import api from "@/lib/api";
+import ProfileHeader from "@/app/components/profile/ProfileHeader";
 
-type BookingStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
+/* ================= TYPES ================= */
+
+type BookingStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "CANCELLED"
+  | "COMPLETED";
+
+interface Vehicle {
+  _id: string;
+  name: string;
+  imageUrl?: string;
+}
 
 interface Booking {
   _id: string;
-  vehicle: {
-    name: string;
-    imageUrl: string;
-    pricePerDay: number;
-  };
   startDate: string;
   endDate: string;
   status: BookingStatus;
+  vehicle: Vehicle | null;
+  user?: {
+    email: string;
+  };
 }
 
-export default function MyBookingsPage() {
-  const router = useRouter();
+/* ================= PAGE ================= */
+
+export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  /* ================= FETCH BOOKINGS ================= */
-  const fetchBookings = async () => {
+  /* ================= FETCH ================= */
+
+  const loadBookings = async () => {
     try {
-      const res = await api.get("/bookings/my", {
-        withCredentials: true, // 🔒 HttpOnly cookie
-      });
+      const res = await api.get("/bookings", { withCredentials: true });
       setBookings(res.data.data);
-    } catch (err) {
-      alert("Failed to load bookings");
+      setIsAdmin(true);
+    } catch {
+      const res = await api.get("/bookings/my", { withCredentials: true });
+      setBookings(res.data.data);
+      setIsAdmin(false);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchBookings();
+    loadBookings();
   }, []);
 
   /* ================= ACTIONS ================= */
+
+  const confirmBooking = async (id: string) => {
+    await api.put(`/bookings/${id}/confirm`, {}, { withCredentials: true });
+    loadBookings();
+  };
+
   const cancelBooking = async (id: string) => {
-    if (!confirm("Cancel this booking?")) return;
+    const url = isAdmin
+      ? `/bookings/${id}/cancel`
+      : `/bookings/my/${id}/cancel`;
 
-    try {
-      await api.put(
-        `/bookings/my/${id}/cancel`,
-        {},
-        { withCredentials: true }
-      );
-      fetchBookings();
-    } catch (err: any) {
-      alert(err?.response?.data?.message || "Cancel failed");
-    }
+    await api.put(url, {}, { withCredentials: true });
+    loadBookings();
   };
 
-  const payNow = (id: string) => {
-    // ⚠️ frontend only redirect (NO backend call)
-    router.push(`/payment/${id}`);
-  };
+  /* ================= STATS ================= */
+
+  const total = bookings.length;
+  const pending = bookings.filter((b) => b.status === "PENDING").length;
+  const confirmed = bookings.filter((b) => b.status === "CONFIRMED").length;
+  const cancelled = bookings.filter((b) => b.status === "CANCELLED").length;
 
   /* ================= UI ================= */
+
   return (
-    <div className="min-h-screen bg-[#221a10] text-slate-100 px-6 py-10">
-      <div className="max-w-5xl mx-auto">
-        <h1 className="text-3xl font-extrabold mb-8">My Bookings</h1>
+    <div className="min-h-screen bg-[#221a10] text-white font-[Plus_Jakarta_Sans]">
 
-        {loading ? (
-          <p className="text-slate-400">Loading bookings…</p>
-        ) : bookings.length === 0 ? (
-          <p className="text-slate-400">No bookings found</p>
-        ) : (
-          <div className="space-y-6">
-            {bookings.map((b) => (
-              <div
-                key={b._id}
-                className="flex gap-6 bg-black/40 border border-[#ec9213]/10 rounded-2xl p-6"
-              >
-                {/* IMAGE */}
-                <img
-                  src={b.vehicle.imageUrl}
-                  alt={b.vehicle.name}
-                  className="w-40 h-28 object-cover rounded-xl"
-                />
+      {/* HEADER */}
+      <header className="h-20 border-b border-[#ec9213]/20 bg-[#221a10]/90">
+        <div className="max-w-[1600px] mx-auto px-6 h-full flex items-center justify-between">
 
-                {/* INFO */}
-                <div className="flex-1">
-                  <h2 className="text-xl font-bold">{b.vehicle.name}</h2>
-
-                  <p className="text-sm text-slate-400">
-                    {new Date(b.startDate).toDateString()} →{" "}
-                    {new Date(b.endDate).toDateString()}
-                  </p>
-
-                  <p className="mt-2 font-bold text-[#ec9213]">
-                    ${b.vehicle.pricePerDay} / day
-                  </p>
-
-                  <span
-                    className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold
-                      ${
-                        b.status === "PENDING"
-                          ? "bg-yellow-500/20 text-yellow-400"
-                          : b.status === "CONFIRMED"
-                          ? "bg-green-500/20 text-green-400"
-                          : b.status === "CANCELLED"
-                          ? "bg-red-500/20 text-red-400"
-                          : "bg-slate-500/20 text-slate-300"
-                      }
-                    `}
-                  >
-                    {b.status}
-                  </span>
-                </div>
-
-                {/* ACTIONS */}
-                <div className="flex flex-col gap-3 justify-center">
-                  {b.status === "PENDING" && (
-                    <button
-                      onClick={() => payNow(b._id)}
-                      className="px-5 py-2 rounded-lg font-bold bg-[#ec9213] text-black hover:bg-orange-500"
-                    >
-                      Pay Now
-                    </button>
-                  )}
-
-                  {b.status === "PENDING" && (
-                    <button
-                      onClick={() => cancelBooking(b._id)}
-                      className="px-5 py-2 rounded-lg bg-red-600 hover:bg-red-500"
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
+          <div>
+            <h1 className="text-2xl font-bold">
+              {isAdmin ? "Booking Management" : "My Reservations"}
+            </h1>
+            <p className="text-sm text-slate-400">
+              Monitor and manage rental activity
+            </p>
           </div>
-        )}
-      </div>
+
+          <ProfileHeader />
+        </div>
+      </header>
+
+      {/* MAIN */}
+      <main className="max-w-[1600px] mx-auto px-6 py-8 space-y-8">
+
+        {/* STATS */}
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-6">
+
+          <StatCard title="Total" value={total} />
+          <StatCard title="Pending" value={pending} highlight />
+          <StatCard title="Confirmed" value={confirmed} />
+          <StatCard title="Cancelled" value={cancelled} />
+
+        </section>
+
+        {/* TABLE */}
+        <section className="bg-black/40 border border-[#ec9213]/20 rounded-2xl overflow-hidden">
+
+          {loading ? (
+            <div className="p-12 text-center text-slate-400">
+              Loading bookings...
+            </div>
+          ) : bookings.length === 0 ? (
+            <div className="p-12 text-center text-slate-400">
+              No bookings found
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+
+              <table className="w-full text-sm">
+
+                {/* HEAD */}
+                <thead className="bg-black/60 border-b border-[#ec9213]/20">
+
+                  <tr className="text-left text-slate-300">
+
+                    <th className="p-4">Vehicle</th>
+                    <th className="p-4">Name</th>
+                    <th className="p-4">Dates</th>
+                    <th className="p-4">Status</th>
+
+                    {isAdmin && (
+                      <th className="p-4">User</th>
+                    )}
+
+                    <th className="p-4 text-right">Actions</th>
+
+                  </tr>
+
+                </thead>
+
+                {/* BODY */}
+                <tbody>
+
+                  {bookings.map((b) => (
+                    <tr
+                      key={b._id}
+                      className="border-b border-[#ec9213]/10 hover:bg-white/5 transition"
+                    >
+
+                      {/* IMAGE */}
+                      <td className="p-4">
+                        {b.vehicle?.imageUrl ? (
+                          <img
+                            src={b.vehicle.imageUrl}
+                            className="w-20 h-12 object-cover rounded-lg"
+                          />
+                        ) : (
+                          <div className="w-20 h-12 bg-black/30 rounded-lg flex items-center justify-center text-xs text-slate-400">
+                            No Image
+                          </div>
+                        )}
+                      </td>
+
+                      {/* NAME */}
+                      <td className="p-4 font-semibold">
+                        {b.vehicle?.name ?? "Deleted"}
+                      </td>
+
+                      {/* DATE */}
+                      <td className="p-4 text-slate-400">
+                        {new Date(b.startDate).toLocaleDateString()} →
+                        {new Date(b.endDate).toLocaleDateString()}
+                      </td>
+
+                      {/* STATUS */}
+                      <td className="p-4">
+                        <StatusBadge status={b.status} />
+                      </td>
+
+                      {/* USER */}
+                      {isAdmin && (
+                        <td className="p-4 text-slate-400 text-xs">
+                          {b.user?.email}
+                        </td>
+                      )}
+
+                      {/* ACTIONS */}
+                      <td className="p-4 text-right space-x-2">
+
+                        {isAdmin && b.status === "PENDING" && (
+                          <button
+                            onClick={() => confirmBooking(b._id)}
+                            className="px-3 py-1 rounded-md bg-green-500 text-black text-xs font-bold hover:bg-green-600"
+                          >
+                            Confirm
+                          </button>
+                        )}
+
+                        {b.status !== "CANCELLED" && (
+                          <button
+                            onClick={() => cancelBooking(b._id)}
+                            className="px-3 py-1 rounded-md bg-red-600 text-xs font-bold hover:bg-red-700"
+                          >
+                            Cancel
+                          </button>
+                        )}
+
+                      </td>
+                    </tr>
+                  ))}
+
+                </tbody>
+              </table>
+
+            </div>
+          )}
+
+        </section>
+      </main>
     </div>
+  );
+}
+
+/* ================= COMPONENTS ================= */
+
+function StatCard({
+  title,
+  value,
+  highlight,
+}: {
+  title: string;
+  value: number;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={`
+        p-6 rounded-2xl border
+        bg-black/40
+        ${highlight
+          ? "border-[#ec9213]/60 shadow-[0_0_20px_#ec921330]"
+          : "border-[#ec9213]/20"}
+      `}
+    >
+      <p className="text-sm text-slate-400">{title}</p>
+      <p className="text-3xl font-bold mt-1">{value}</p>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: BookingStatus }) {
+  const styles: Record<BookingStatus, string> = {
+    PENDING: "bg-yellow-500/20 text-yellow-400 border-yellow-500/40",
+    CONFIRMED: "bg-green-500/20 text-green-400 border-green-500/40",
+    CANCELLED: "bg-red-500/20 text-red-400 border-red-500/40",
+    COMPLETED: "bg-blue-500/20 text-blue-400 border-blue-500/40",
+  };
+
+  return (
+    <span
+      className={`px-3 py-1 text-xs rounded-full border font-semibold ${styles[status]}`}
+    >
+      {status}
+    </span>
   );
 }
