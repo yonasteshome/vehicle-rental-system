@@ -13,7 +13,7 @@ import {
   CartesianGrid,
 } from "recharts";
 
-/* ================= TYPES ================= */
+/* ================= TYPES  of interface================= */
 
 interface AdminStats {
   totalRevenue: number;
