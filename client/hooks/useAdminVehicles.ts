@@ -64,7 +64,7 @@ export function useAdminVehicles() {
 
   const submit = async () => {
     if (!form.name || !form.imageUrl || form.pricePerDay <= 0) {
-      alert("Fill all fields correctly");
+      alert("Fill all fields correctly again");
       return;
     }
 
