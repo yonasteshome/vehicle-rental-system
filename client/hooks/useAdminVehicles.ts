@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 
-/* ================= TYPES ================= */
+/* ================= TYPES of the objects================= */
 
 export type VehicleType = "Luxury" | "SUV" | "Sport" | "Electric";
 
