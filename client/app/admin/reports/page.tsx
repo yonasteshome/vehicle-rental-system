@@ -46,7 +46,7 @@ export default function AdminReportsPage() {
     loadStats();
   }, []);
 
-  /* ================= CHART DATA ================= */
+  /* ================= CHART DATA inserted ================= */
 
   const chartData = stats
     ? [
