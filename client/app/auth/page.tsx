@@ -69,7 +69,7 @@ export default function Page() {
         {/* RIGHT SIDE */}
         <div className="p-8 sm:p-12 flex flex-col justify-center">
 
-          {/* TOGGLE */}
+          {/* TOGGLE part*/}
           <div className="mb-8">
             <div className="flex bg-[#120e09] rounded-xl p-1 max-w-xs mx-auto">
 
