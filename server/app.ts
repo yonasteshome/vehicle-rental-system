@@ -7,8 +7,8 @@ import authRoutes from "./routes/auth.routes";
 const app = express();
 
 app.use(cors({
-  origin: "http://localhost:3000", // frontend URL
-  credentials: true               // 👈 REQUIRED for cookies
+  origin: "https://vehicle-rental-system-wrjt.vercel.app", // frontend URL
+  credentials: true    
 }));
 
 app.use(express.json());
