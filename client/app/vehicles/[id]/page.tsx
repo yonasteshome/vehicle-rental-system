@@ -69,18 +69,19 @@ export default function VehicleDetailPage() {
               <span className="text-gray-400"> / day</span>
             </div>
 
+            {/* ✅ FIXED INPUTS */}
             <input
               type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              value={startDate ?? ""} // ✅ FIX
+              onChange={(e) => setStartDate(e.target.value || null)} // ✅ SAFE
               className="w-full bg-black border border-[#2a2a2a] rounded-lg p-3"
             />
 
             <input
               type="date"
-              value={endDate}
-              min={startDate || undefined}
-              onChange={(e) => setEndDate(e.target.value)}
+              value={endDate ?? ""} // ✅ FIX
+              min={startDate ?? undefined} // ✅ FIX
+              onChange={(e) => setEndDate(e.target.value || null)} // ✅ SAFE
               className="w-full bg-black border border-[#2a2a2a] rounded-lg p-3"
             />
 
