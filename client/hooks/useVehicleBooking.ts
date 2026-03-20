@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { differenceInCalendarDays } from "date-fns";
 
 import api from "@/lib/api";
-import { Vehicle, Booking } from "@/types/booking";
+import { Vehicle, Booking, BookingStatus } from "@/types/booking";
 import { useBookingStore } from "@/store/bookingStore";
 
 /* ================= HOOK RETURN TYPE ================= */
@@ -15,16 +15,16 @@ export interface UseVehicleBookingReturn {
   loading: boolean;
   bookingLoading: boolean;
 
-  startDate: string;
-  endDate: string;
-  status: string | null;
+  startDate: string | null; // ✅ FIX
+  endDate: string | null;   // ✅ FIX
+  status: BookingStatus;    // ✅ FIX (use shared type)
 
   days: number;
   totalPrice: number;
   canBook: boolean;
 
-  setStartDate: (v: string) => void;
-  setEndDate: (v: string) => void;
+  setStartDate: (v: string | null) => void; // ✅ FIX
+  setEndDate: (v: string | null) => void;   // ✅ FIX
 
   book: () => Promise<void>;
   goToPayment: () => void;
@@ -120,7 +120,7 @@ export function useVehicleBooking(): UseVehicleBookingReturn {
   /* ========== ACTIONS ========== */
 
   const book = async (): Promise<void> => {
-    if (!vehicle || !canBook) return;
+    if (!vehicle || !canBook || !startDate || !endDate) return;
 
     try {
       setBookingLoading(true);
