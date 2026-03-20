@@ -16,6 +16,7 @@ interface BookingState {
   setBookingId: (id: string | null) => void;
 
   resetDates: () => void;
+  reset: () => void; // ✅ ADD THIS
 }
 
 export const useBookingStore = create<BookingState>((set) => ({
@@ -32,6 +33,13 @@ export const useBookingStore = create<BookingState>((set) => ({
   setBookingId: (id) => set({ bookingId: id }),
 
   resetDates: () =>
+    set({
+      startDate: null,
+      endDate: null,
+    }),
+
+  // ✅ FULL RESET (what your hook expects)
+  reset: () =>
     set({
       startDate: null,
       endDate: null,
