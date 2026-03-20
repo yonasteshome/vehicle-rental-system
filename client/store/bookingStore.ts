@@ -1,12 +1,11 @@
 import { create } from "zustand";
-
-type BookingStatus = "idle" | "loading" | "success" | "error";
+import { BookingStatus } from "@/types/booking"; // ✅ USE SHARED TYPE
 
 interface BookingState {
   startDate: string | null;
   endDate: string | null;
 
-  status: BookingStatus;
+  status: BookingStatus; // now matches everywhere
   bookingId: string | null;
 
   setStartDate: (date: string | null) => void;
@@ -16,14 +15,14 @@ interface BookingState {
   setBookingId: (id: string | null) => void;
 
   resetDates: () => void;
-  reset: () => void; // ✅ ADD THIS
+  reset: () => void;
 }
 
 export const useBookingStore = create<BookingState>((set) => ({
   startDate: null,
   endDate: null,
 
-  status: "idle",
+  status: null, // ✅ IMPORTANT (not "idle")
   bookingId: null,
 
   setStartDate: (date) => set({ startDate: date }),
@@ -38,12 +37,11 @@ export const useBookingStore = create<BookingState>((set) => ({
       endDate: null,
     }),
 
-  // ✅ FULL RESET (what your hook expects)
   reset: () =>
     set({
       startDate: null,
       endDate: null,
-      status: "idle",
+      status: null,
       bookingId: null,
     }),
 }));
