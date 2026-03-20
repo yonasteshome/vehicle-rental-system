@@ -18,6 +18,10 @@ export default function BookingCalendar({
   const { startDate, endDate, setStartDate, setEndDate } =
     useBookingStore();
 
+  // ✅ Convert string → Date
+  const parsedStartDate = startDate ? new Date(startDate) : undefined;
+  const parsedEndDate = endDate ? new Date(endDate) : undefined;
+
   if (!open) return null;
 
   return (
@@ -26,12 +30,12 @@ export default function BookingCalendar({
         mode="range"
         numberOfMonths={2}
         selected={{
-          from: startDate ?? undefined,
-          to: endDate ?? undefined,
+          from: parsedStartDate,
+          to: parsedEndDate,
         }}
         onSelect={(range) => {
-          setStartDate(range?.from ?? null);
-          setEndDate(range?.to ?? null);
+          setStartDate(range?.from ? range.from.toISOString() : null);
+          setEndDate(range?.to ? range.to.toISOString() : null);
         }}
         disabled={disabledRanges}
       />
